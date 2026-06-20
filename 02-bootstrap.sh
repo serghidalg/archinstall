@@ -23,7 +23,16 @@ pacstrap -K /mnt \
     networkmanager \
     sudo vim git \
     snapper snap-pac \
-    intel-ucode amd-ucode
+    grub efibootmgr \
+    intel-ucode amd-ucode \
+    hyprland waybar kitty rofi thunar dunst \
+    hyprpaper hyprlock hypridle grim slurp wl-clipboard \
+    qt5ct qt6ct polkit-kde-agent \
+    pipewire pipewire-pulse wireplumber pavucontrol \
+    network-manager-applet brightnessctl \
+    ttf-jetbrains-mono-nerd noto-fonts noto-fonts-emoji \
+    btop papirus-icon-theme \
+    sddm firefox
 
 echo "--> Generando fstab..."
 genfstab -U /mnt >> /mnt/etc/fstab

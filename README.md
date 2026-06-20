@@ -1,27 +1,38 @@
-# Arch + Hyprland — instalación desde cero
+# dotfiles
 
-Esto instala Arch Linux desde un ISO live, con Btrfs + snapshots automáticos
-(snapper), y deja configurado Hyprland con todo lo que armamos: waybar, rofi,
-wlogout, dunst, hypridle/hyprlock, kitty con paleta "techy", y atajos
-adaptados a teclado Dvorak por posición física.
+Arch Linux + Hyprland, instalación desde cero. Btrfs con subvolúmenes y
+snapshots automáticos vía snapper, SDDM como display manager, waybar +
+rofi + wlogout + dunst con la misma paleta, hypridle/hyprlock para
+bloqueo automático.
 
-## Orden de ejecución
+Pensado para teclado Dvorak: los binds de `hyprland.conf` usan códigos
+físicos de tecla en vez de keysyms, así que no dependen del layout activo.
 
-| # | Script | Dónde se ejecuta | Qué hace |
-|---|--------|-------------------|----------|
-| 1 | `01-partition.sh` | ISO live de Arch | Particiona y formatea el disco (Btrfs + subvolúmenes) |
-| 2 | `02-bootstrap.sh` | ISO live de Arch | Instala el sistema base (pacstrap) + fstab |
-| 3 | `03-chroot-config.sh` | Dentro de `arch-chroot /mnt` | Timezone, locale, usuario, bootloader, snapper |
-| 4 | `04-post-install.sh` | Ya arrancado, como usuario normal | Hyprland + dotfiles |
+## Estructura
 
-### Paso a paso
+```
+.
+├── 01-partition.sh       # particionado + Btrfs (desde el ISO live)
+├── 02-bootstrap.sh       # pacstrap + fstab (desde el ISO live)
+├── 03-chroot-config.sh   # locale, usuario, GRUB+tema, dotfiles, SDDM, snapper (en chroot)
+├── 04-post-install.sh    # solo yay + wlogout (AUR, usuario normal post-reboot)
+├── snap-now.sh           # snapshot manual rápido
+└── config/
+    ├── hypr/       hyprland.conf, hypridle.conf, hyprlock.conf, hyprpaper.conf
+    ├── waybar/     config.jsonc, style.css
+    ├── rofi/       config.rasi
+    ├── wlogout/    layout.json, style.css
+    ├── dunst/      dunstrc
+    ├── kitty/      kitty.conf
+    └── btop/       btop-overrides.conf
+```
+
+## Instalación
+
+Desde el ISO de Arch, con red ya configurada:
 
 ```bash
-# 1. Arranca desde el ISO de Arch, conecta a internet (iwctl si es wifi)
-# 2. Copia esta carpeta al ISO live (USB, curl, scp, lo que tengas a mano)
-cd arch-hyprland-dotfiles
 chmod +x *.sh
-
 ./01-partition.sh
 ./02-bootstrap.sh
 
@@ -35,90 +46,76 @@ umount -R /mnt
 reboot
 ```
 
-Tras reiniciar, entra con el usuario que creaste (consola de texto, sin
-entorno gráfico todavía):
+**En este punto, todo ya está funcionando**: SDDM, Hyprland, waybar,
+rofi, dunst, hypridle/hyprlock, kitty, btop y los dotfiles, ya instalados
+y configurados desde dentro del chroot. Inicia sesión en SDDM y elige
+**Hyprland**.
+
+Lo único pendiente es `wlogout` (viene de AUR — `makepkg` no compila
+como root, necesita tu usuario normal real, no el chroot):
 
 ```bash
 cd ~/arch-hyprland-dotfiles
-chmod +x *.sh
 ./04-post-install.sh
-sudo reboot
 ```
 
-En la pantalla de **SDDM**, elige la sesión **Hyprland**.
+`01-partition.sh` borra el disco que se le indique. Pide el nombre dos
+veces y confirmación explícita; aun así, revisa con `lsblk` antes de
+correrlo.
 
-## ⚠️ Sobre `01-partition.sh`
+## Particionado
 
-Este script **borra por completo** el disco que indiques. Pide el nombre
-del disco dos veces y una palabra de confirmación exacta — aun así, lee el
-script antes de correrlo y confirma con `lsblk` que el disco que vas a
-indicar es el correcto (no un USB, no un disco con otros datos).
+GPT con EFI (512M, FAT32) + Btrfs en el resto, con subvolúmenes:
 
-## Tu red de seguridad: snapshots con Snapper
+| Subvolumen   | Punto de montaje              |
+|--------------|--------------------------------|
+| `@`          | `/`                            |
+| `@home`      | `/home`                        |
+| `@snapshots` | `/.snapshots`                  |
+| `@var_log`   | `/var/log`                     |
+| `@pkg`       | `/var/cache/pacman/pkg`        |
 
-Esto es justo lo que te habría salvado del incidente con `find -delete`.
-El subvolumen raíz (`@`) tiene snapshots automáticos:
+Montados con `compress=zstd,noatime`.
 
-- Cada vez que instalas/quitas un paquete con `pacman` (gracias a `snap-pac`).
-- Cada hora (timeline), limpiándose solas según la política configurada.
+## Snapshots
 
-**Ver snapshots disponibles:**
+Snapper queda activo sobre `@` con timeline automático (limpieza
+configurada) y `snap-pac` para snapshot pre/post en cada operación de
+pacman.
+
 ```bash
 sudo snapper -c root list
+sudo snapper -c root create --description "..."   # o: ./snap-now.sh "..."
+sudo snapper -c root undochange <N>..0
 ```
 
-**Tomar un snapshot manual antes de algo arriesgado** (usa el helper incluido):
-```bash
-./snap-now.sh "antes de probar tal cosa"
-```
+`/home` está en un subvolumen separado, sin snapshots configurados por
+defecto (se puede añadir con `snapper -c home create-config /home`).
 
-**Restaurar un snapshot** (vuelve TODO el sistema, incluyendo archivos
-personales en `/`, al estado de ese snapshot):
-```bash
-sudo snapper -c root list                  # busca el número que quieres
-sudo snapper -c root undochange <N>..0     # revierte cambios desde el snapshot N hasta ahora
-```
-o, para una restauración completa offline (más seguro para cambios grandes),
-arranca desde el ISO live y usa `snapper -c root rollback <N>`.
+## Paquetes principales
 
-> Nota: `/home` está en su propio subvolumen (`@home`) separado de `@`.
-> Esto es intencional — significa que los snapshots de `@` (el sistema)
-> son rápidos y frecuentes, pero si quieres que tus archivos personales
-> en `/home` también tengan snapshots, hay que configurar snapper aparte
-> para ese subvolumen (`snapper -c home create-config /home`). Pregúntame
-> si quieres que te lo prepare también.
+hyprland, waybar, kitty, rofi, thunar, dunst, hyprpaper, hyprlock,
+hypridle, grim/slurp, pipewire, sddm, firefox. `wlogout` se instala vía
+AUR con `yay` (el script lo bootstrapea si no existe).
 
-## Notas
+## Bootloader
 
-- **Teclado Dvorak:** los atajos de `hyprland.conf` usan códigos físicos
-  de tecla (`code:`), así que funcionan igual sin importar el layout
-  activo. El layout de texto está puesto en `us` + `dvorak`.
-- **Wallpaper:** copia tu imagen a `~/Pictures/wallpapers/fondo.jpg`
-  después de la instalación. `hyprpaper.conf` está configurado para el
-  monitor `eDP-1` — si tu monitor se llama distinto, ajústalo (lo ves con
-  `hyprctl monitors`).
-- **wlogout** se instala desde AUR vía `yay` (no está en repos oficiales).
-- **btop**: ya viene con `confirm_exit = False` y `show_battery = False`
-  aplicados automáticamente por el script 4.
-- El popup de "¿cerrar ventana?" en **kitty** con procesos corriendo
-  (como btop) está desactivado en su config.
+GRUB (no systemd-boot), replicando tu `/etc/default/grub` actual:
+timeout 5, GFX 2560x1440, sin recovery entries, con el tema
+**Particle-window** (de [yeyushengfan258/Particle-grub-theme](https://github.com/yeyushengfan258/Particle-grub-theme),
+variante `2k`, instalado en `/usr/share/grub/themes/`). `os-prober` queda
+habilitado en la config por si en el futuro agregas otro sistema, aunque
+no se instala el paquete `os-prober` por defecto — añádelo a mano
+(`pacman -S os-prober`) si lo necesitas.
 
-## Estructura de este repo
+## Pendiente / a mano tras instalar
 
-```
-arch-hyprland-dotfiles/
-├── 01-partition.sh
-├── 02-bootstrap.sh
-├── 03-chroot-config.sh
-├── 04-post-install.sh
-├── snap-now.sh
-├── README.md
-└── config/
-    ├── hypr/      (hyprland.conf, hypridle.conf, hyprlock.conf, hyprpaper.conf)
-    ├── waybar/    (config.jsonc, style.css)
-    ├── rofi/      (config.rasi)
-    ├── wlogout/   (layout.json, style.css)
-    ├── dunst/     (dunstrc)
-    ├── kitty/     (kitty.conf)
-    └── btop/      (btop-overrides.conf)
-```
+- Wallpaper en `~/Pictures/wallpapers/fondo.jpg` (referenciado en
+  `hyprpaper.conf`, configurado para el monitor `eDP-1` — ajustar si
+  el nombre del monitor es otro, ver `hyprctl monitors`). La carpeta
+  ya existe, solo falta el archivo.
+- `wlogout` (AUR) — correr `./04-post-install.sh` como usuario normal.
+
+## Licencia
+
+MIT, o lo que sea, son dotfiles.

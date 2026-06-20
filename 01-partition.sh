@@ -12,9 +12,9 @@
 #       @var_log  -> /var/log
 #       @pkg      -> /var/cache/pacman/pkg
 #
-# El esquema de subvolúmenes + snapper es justo lo que te habría salvado
-# del incidente con "find -delete": con snapshots automáticos puedes
-# volver atrás en segundos a un estado de hace minutos/horas.
+# Subvolúmenes Btrfs + snapper para snapshots automáticos del sistema.
+# Permite hacer rollback completo en caso de updates rotos o cambios
+# accidentales en el sistema de archivos.
 #
 # ESTE SCRIPT BORRA TODO EL CONTENIDO DEL DISCO QUE INDIQUES.
 # No hay deshacer. Léelo dos veces antes de ejecutarlo.

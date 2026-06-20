@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # snap-now.sh — snapshot manual instantáneo con snapper.
-# Uso: ./snap-now.sh "antes de probar el find ese"
+# Uso: ./snap-now.sh "antes de actualizar el kernel"
 set -euo pipefail
 DESC="${1:-snapshot manual}"
 sudo snapper -c root create --description "$DESC"

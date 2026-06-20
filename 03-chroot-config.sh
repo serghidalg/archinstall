@@ -54,33 +54,98 @@ if [ -d /root/arch-hyprland-dotfiles ]; then
     chown -R "${USERNAME}:${USERNAME}" "/home/${USERNAME}/arch-hyprland-dotfiles"
 fi
 
-# ---- Bootloader (systemd-boot, asume UEFI) ----
-bootctl install
+# ---- Bootloader: GRUB (réplica de tu configuración actual, asume UEFI) ----
+# grub y efibootmgr ya vienen instalados desde el pacstrap (02-bootstrap.sh)
+grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
 
-ROOT_UUID=$(findmnt -no UUID /)
+# Tu /etc/default/grub, tal cual lo tenías
+cat > /etc/default/grub << 'GRUBEOF'
+# GRUB boot loader configuration
+GRUB_DEFAULT="0"
+GRUB_TIMEOUT="5"
+GRUB_DISTRIBUTOR="Arch"
+GRUB_CMDLINE_LINUX_DEFAULT="loglevel=3 quiet"
+GRUB_CMDLINE_LINUX=""
 
-cat > /boot/loader/loader.conf << EOF
-default arch.conf
-timeout 3
-console-mode max
-editor no
-EOF
+# Preload both GPT and MBR modules so that they are not missed
+GRUB_PRELOAD_MODULES="part_gpt part_msdos"
 
-cat > /boot/loader/entries/arch.conf << EOF
-title   Arch Linux
-linux   /vmlinuz-linux
-initrd  /initramfs-linux.img
-options root=UUID=${ROOT_UUID} rootflags=subvol=@ rw
-EOF
+# Uncomment to enable booting from LUKS encrypted devices
+#GRUB_ENABLE_CRYPTODISK="y"
+
+# Set to 'countdown' or 'hidden' to change timeout behavior,
+# press ESC key to display menu.
+GRUB_TIMEOUT_STYLE="menu"
+
+# Uncomment to use basic console
+GRUB_TERMINAL_INPUT="console"
+
+# Uncomment to disable graphical terminal
+#GRUB_TERMINAL_OUTPUT=console
+
+# The resolution used on graphical terminal
+GRUB_GFXMODE=2560x1440,auto
+
+# Uncomment to allow the kernel use the same resolution used by grub
+GRUB_GFXPAYLOAD_LINUX="keep"
+
+#GRUB_DISABLE_LINUX_UUID="true"
+
+# Uncomment to disable generation of recovery mode menu entries
+GRUB_DISABLE_RECOVERY="true"
+
+# Colores del menú
+export GRUB_COLOR_NORMAL="light-blue/black"
+export GRUB_COLOR_HIGHLIGHT="light-cyan/blue"
+
+# Tema Particle-window
+GRUB_BACKGROUND="/usr/share/grub/themes/Particle-window/background.jpg"
+GRUB_THEME="/usr/share/grub/themes/Particle-window/theme.txt"
+
+#GRUB_INIT_TUNE="480 440 1"
+#GRUB_SAVEDEFAULT="true"
+#GRUB_DISABLE_SUBMENU="y"
+
+# Sin dual-boot, no necesitamos os-prober, pero lo dejamos igual que
+# tenías por si en el futuro añades otro sistema:
+GRUB_DISABLE_OS_PROBER="false"
+GRUBEOF
+
+# ---- Tema Particle-window (yeyushengfan258/Particle-grub-theme) ----
+# Instalado SIN el flag -b, para que quede en /usr/share/grub/themes/
+# (coincide con las rutas de GRUB_BACKGROUND/GRUB_THEME de arriba).
+# -s 2k porque tu GRUB_GFXMODE es 2560x1440.
+git clone https://github.com/yeyushengfan258/Particle-grub-theme.git /tmp/particle-theme
+(cd /tmp/particle-theme && ./install.sh -t window -s 2k)
+rm -rf /tmp/particle-theme
+
+grub-mkconfig -o /boot/grub/grub.cfg
+
+# ---- Desplegar dotfiles (waybar, rofi, hypr*, wlogout, dunst, kitty, btop) ----
+DOTFILES_DIR="/home/${USERNAME}/arch-hyprland-dotfiles"
+USER_CONFIG="/home/${USERNAME}/.config"
+mkdir -p "$USER_CONFIG"
+cp -r "$DOTFILES_DIR/config/hypr"    "$USER_CONFIG/"
+cp -r "$DOTFILES_DIR/config/waybar"  "$USER_CONFIG/"
+cp -r "$DOTFILES_DIR/config/rofi"    "$USER_CONFIG/"
+cp -r "$DOTFILES_DIR/config/wlogout" "$USER_CONFIG/"
+cp -r "$DOTFILES_DIR/config/dunst"   "$USER_CONFIG/"
+cp -r "$DOTFILES_DIR/config/kitty"   "$USER_CONFIG/"
+mkdir -p "$USER_CONFIG/btop"
+cp "$DOTFILES_DIR/config/btop/btop.conf" "$USER_CONFIG/btop/btop.conf"
+mkdir -p "/home/${USERNAME}/Pictures/wallpapers"
+chown -R "${USERNAME}:${USERNAME}" "$USER_CONFIG" "/home/${USERNAME}/Pictures"
+
+# ---- Display manager ----
+systemctl enable sddm
 
 # ---- Servicios ----
 systemctl enable NetworkManager
 systemctl enable fstrim.timer
 
 # ---- Snapper: snapshots automáticos del subvolumen raíz ----
-# Esto es justo la red de seguridad que te habría salvado del "find -delete":
-# con snap-pac, cada "pacman -S/-R" crea un snapshot automático antes/después,
-# y puedes además tomar snapshots manuales en cualquier momento.
+# snap-pac crea un snapshot antes/después de cada operación de pacman,
+# y se pueden tomar snapshots manuales en cualquier momento.
 umount /.snapshots
 rm -rf /.snapshots
 snapper -c root create-config /
@@ -96,13 +161,17 @@ systemctl enable snapper-cleanup.timer
 
 echo
 echo "=================================================================="
-echo "  Configuración base completa."
-echo "  Sal del chroot (exit), desmonta y reinicia:"
+echo "  Configuración completa. Hyprland, SDDM y todos los dotfiles ya"
+echo "  están listos para el primer arranque."
+echo
+echo "  Sal del chroot, desmonta y reinicia:"
 echo "    exit"
 echo "    umount -R /mnt"
 echo "    reboot"
 echo
-echo "  Tras reiniciar y entrar con tu usuario ($USERNAME), corre:"
-echo "    cd ~/arch-hyprland-dotfiles   (o donde hayas copiado la carpeta)"
-echo "    ./04-post-install.sh"
+echo "  Tras reiniciar, inicia sesión gráfica en SDDM con tu usuario"
+echo "  ($USERNAME) y elige la sesión Hyprland. Todo debería funcionar"
+echo "  YA, salvo wlogout (viene de AUR, requiere usuario normal real"
+echo "  para compilar) — corre ./04-post-install.sh una vez dentro para"
+echo "  completar eso."
 echo "=================================================================="
