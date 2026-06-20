@@ -163,7 +163,7 @@ systemctl enable sddm
 
 # ---- Servicios ----
 systemctl enable NetworkManager
-systemctl enable fstrim.timer
+#systemctl enable fstrim.timer
 
 # ---- Snapper: snapshots automáticos del subvolumen raíz ----
 # snap-pac crea un snapshot antes/después de cada operación de pacman,
