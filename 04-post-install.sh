@@ -27,7 +27,16 @@ if ! command -v yay &> /dev/null; then
     rm -rf "$tmpdir"
 fi
 
-yay -S --needed --noconfirm wlogout
+yay -S --needed --noconfirm wlogout librewolf-bin
+
+echo
+echo "=================================================================="
+echo "  Aplicando preferencia de modo oscuro (dconf)"
+echo "=================================================================="
+# Esto necesita un bus de sesión real corriendo, por eso no se puede
+# hacer dentro del chroot en 03-chroot-config.sh.
+dconf write /org/gnome/desktop/interface/color-scheme "'prefer-dark'"
+dconf write /org/gnome/desktop/interface/gtk-theme "'Adwaita-dark'"
 
 echo
 echo "=================================================================="

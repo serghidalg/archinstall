@@ -8,24 +8,37 @@
     "margin-left": 10,
     "margin-right": 10,
 
-    "modules-left": ["hyprland/workspaces", "hyprland/window"],
+    "modules-left": ["hyprland/workspaces", "hyprland/window", "mpris"],
     "modules-center": ["clock"],
-    "modules-right": ["cpu", "memory", "pulseaudio", "network", "battery", "tray"],
+    "modules-right": [
+        "privacy",
+        "custom/updates",
+        "backlight",
+        "bluetooth",
+        "network",
+        "pulseaudio",
+        "cpu",
+        "memory",
+        "disk",
+        "keyboard-state",
+        "battery",
+        "tray"
+    ],
 
     "hyprland/workspaces": {
         "format": "{id} {icon}",
         "on-click": "activate",
         "format-icons": {
-            "1": "",
-            "2": "",
-            "3": "",
-            "4": "",
-            "5": "",
-            "6": "",
-            "7": "",
-            "8": "",
-            "9": "",
-            "10": "",
+            "1": "\uf0ac",
+            "2": "\uf120",
+            "3": "\uf249",
+            "4": "\uf07b",
+            "5": "\uf086",
+            "6": "\uf001",
+            "7": "\uf11b",
+            "8": "\uf1fc",
+            "9": "\uf013",
+            "10": "\uf08d",
             "default": ""
         }
     },
@@ -33,6 +46,14 @@
     "hyprland/window": {
         "max-length": 40,
         "separate-outputs": true
+    },
+
+    "mpris": {
+        "format": "{player_icon} {dynamic}",
+        "format-paused": "{status_icon} {dynamic}",
+        "player-icons": { "default": "\u25b6", "spotify": "\uf1bc" },
+        "status-icons": { "paused": "\u23f8" },
+        "max-length": 30
     },
 
     "clock": {
@@ -51,38 +72,81 @@
         }
     },
 
+    "privacy": {
+        "icon-spacing": 4,
+        "icon-size": 14,
+        "modules": [
+            { "type": "screenshare" },
+            { "type": "audio-in" }
+        ]
+    },
+
+    "custom/updates": {
+        "exec": "checkupdates 2>/dev/null | wc -l",
+        "interval": 3600,
+        "format": "\uf021 {}",
+        "on-click": "kitty -e sudo pacman -Syu"
+    },
+
+    "backlight": {
+        "format": "{icon} {percent}%",
+        "format-icons": ["\uf5dc", "\uf5dd", "\uf5de"],
+        "on-scroll-up": "brightnessctl set 5%+",
+        "on-scroll-down": "brightnessctl set 5%-"
+    },
+
+    "bluetooth": {
+        "format": "\uf294 {status}",
+        "format-connected": "\uf294 {device_alias}",
+        "format-connected-battery": "\uf294 {device_alias} {device_battery_percentage}%",
+        "tooltip-format": "{controller_alias}\\t{controller_address}",
+        "on-click": "blueman-manager"
+    },
+
     "cpu": {
-        "format": " {usage}%",
+        "format": "\uf4bc {usage}%",
         "interval": 2,
         "on-click": "kitty -e btop"
     },
 
     "memory": {
-        "format": " {percentage}%",
+        "format": "\uf538 {percentage}%",
         "interval": 2
+    },
+
+    "disk": {
+        "format": "\uf0a0 {percentage_used}%",
+        "path": "/"
+    },
+
+    "keyboard-state": {
+        "numlock": true,
+        "capslock": true,
+        "format": "{name} {icon}",
+        "format-icons": { "locked": "\uf023", "unlocked": "\uf09c" }
     },
 
     "pulseaudio": {
         "format": "{volume}% {icon}",
-        "format-muted": " muted",
+        "format-muted": "\uf6a9 muted",
         "format-icons": {
-            "default": ["", "", ""]
+            "default": ["\uf026", "\uf027", "\uf028"]
         },
         "on-click": "pavucontrol",
         "scroll-step": 5
     },
 
     "network": {
-        "format-wifi": " {essid} ({signalStrength}%)",
-        "format-ethernet": " Ethernet",
-        "format-disconnected": " Sin conexión",
+        "format-wifi": "\uf1eb {essid} ({signalStrength}%)",
+        "format-ethernet": "\uf6ff Ethernet",
+        "format-disconnected": "\uf071 Sin conexión",
         "tooltip-format": "{ifname}: {ipaddr}/{cidr}",
         "on-click": "nm-connection-editor"
     },
 
     "battery": {
         "format": "{capacity}% {icon}",
-        "format-icons": ["", "", "", "", ""],
+        "format-icons": ["\uf244", "\uf243", "\uf242", "\uf241", "\uf240"],
         "states": {
             "warning": 30,
             "critical": 15

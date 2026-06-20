@@ -4,7 +4,9 @@ Arch Linux + Hyprland, instalación desde cero. Disco cifrado con LUKS2
 (desbloqueo por TPM2 con passphrase de respaldo), Btrfs con subvolúmenes
 y snapshots automáticos vía snapper, SDDM como display manager, waybar +
 rofi + wlogout + dunst con la misma paleta, hypridle/hyprlock para
-bloqueo automático.
+bloqueo automático, Bluetooth, modo oscuro global (GTK+Qt+portal), y
+carpetas de usuario en inglés (Downloads, Documents...) aunque el
+sistema esté en español.
 
 Pensado para teclado Dvorak: los binds de `hyprland.conf` usan códigos
 físicos de tecla en vez de keysyms, así que no dependen del layout activo.
@@ -127,6 +129,21 @@ defecto (se puede añadir con `snapper -c home create-config /home`).
 hyprland, waybar, kitty, rofi, thunar, dunst, hyprpaper, hyprlock,
 hypridle, grim/slurp, pipewire, sddm, firefox. `wlogout` se instala vía
 AUR con `yay` (el script lo bootstrapea si no existe).
+
+## Modo oscuro
+
+Aplicado globalmente: GTK2/3/4 (Thunar, Firefox sigue el tema GTK
+automáticamente), Qt vía `qt5ct`/`qt6ct` (esquema `darker`), e iconos
+Papirus-Dark. La preferencia a nivel de portal (para apps GTK4/libadwaita
+modernas) se aplica en `04-post-install.sh` vía `dconf`, porque necesita
+una sesión real corriendo — no se puede hacer dentro del chroot.
+
+## Carpetas de usuario en inglés
+
+Aunque el locale del sistema es `es_ES.UTF-8`, las carpetas de la home
+(`Desktop`, `Downloads`, `Documents`, etc.) se escriben directamente en
+inglés en `03-chroot-config.sh`, sin depender de `xdg-user-dirs-update`
+ni del locale activo.
 
 ## Bootloader
 

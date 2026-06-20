@@ -32,7 +32,10 @@ pacstrap -K /mnt \
     network-manager-applet brightnessctl \
     ttf-jetbrains-mono-nerd noto-fonts noto-fonts-emoji \
     btop papirus-icon-theme \
-    sddm firefox
+    sddm firefox \
+    bluez bluez-utils blueman pacman-contrib \
+    dconf xdg-desktop-portal xdg-desktop-portal-gtk xdg-desktop-portal-hyprland \
+    gnome-themes-extra xdg-user-dirs
 
 echo "--> Generando fstab..."
 genfstab -U /mnt >> /mnt/etc/fstab

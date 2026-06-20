@@ -145,25 +145,54 @@ grub-mkconfig -o /boot/grub/grub.cfg
 
 # ---- Desplegar dotfiles (waybar, rofi, hypr*, wlogout, dunst, kitty, btop) ----
 DOTFILES_DIR="/home/${USERNAME}/arch-hyprland-dotfiles"
-USER_CONFIG="/home/${USERNAME}/.config"
+USER_HOME="/home/${USERNAME}"
+USER_CONFIG="${USER_HOME}/.config"
 mkdir -p "$USER_CONFIG"
-cp -r "$DOTFILES_DIR/config/hypr"    "$USER_CONFIG/"
-cp -r "$DOTFILES_DIR/config/waybar"  "$USER_CONFIG/"
-cp -r "$DOTFILES_DIR/config/rofi"    "$USER_CONFIG/"
-cp -r "$DOTFILES_DIR/config/wlogout" "$USER_CONFIG/"
-cp -r "$DOTFILES_DIR/config/dunst"   "$USER_CONFIG/"
-cp -r "$DOTFILES_DIR/config/kitty"   "$USER_CONFIG/"
+cp -r "$DOTFILES_DIR/config/hypr"               "$USER_CONFIG/"
+cp -r "$DOTFILES_DIR/config/waybar"             "$USER_CONFIG/"
+cp -r "$DOTFILES_DIR/config/rofi"               "$USER_CONFIG/"
+cp -r "$DOTFILES_DIR/config/wlogout"            "$USER_CONFIG/"
+cp -r "$DOTFILES_DIR/config/dunst"              "$USER_CONFIG/"
+cp -r "$DOTFILES_DIR/config/kitty"              "$USER_CONFIG/"
+cp -r "$DOTFILES_DIR/config/qt5ct"              "$USER_CONFIG/"
+cp -r "$DOTFILES_DIR/config/qt6ct"              "$USER_CONFIG/"
+cp -r "$DOTFILES_DIR/config/xdg-desktop-portal" "$USER_CONFIG/"
+cp -r "$DOTFILES_DIR/config/gtk-3.0"            "$USER_CONFIG/"
+cp -r "$DOTFILES_DIR/config/gtk-4.0"            "$USER_CONFIG/"
 mkdir -p "$USER_CONFIG/btop"
 cp "$DOTFILES_DIR/config/btop/btop.conf" "$USER_CONFIG/btop/btop.conf"
-mkdir -p "/home/${USERNAME}/Pictures/wallpapers"
-chown -R "${USERNAME}:${USERNAME}" "$USER_CONFIG" "/home/${USERNAME}/Pictures"
+
+# GTK2 vive directo en la home, no en .config
+cp "$DOTFILES_DIR/config/gtk-2.0/gtkrc-2.0" "${USER_HOME}/.gtkrc-2.0"
+
+chmod +x "$USER_CONFIG/hypr/scripts/quake-terminal.sh"
+
+# ---- Carpetas de usuario en inglés (Downloads, Documents, etc.) ----
+# Se escriben a mano en vez de depender de xdg-user-dirs-update, para
+# que queden en inglés sin importar el locale del sistema (es_ES).
+mkdir -p "$USER_HOME"/{Desktop,Downloads,Templates,Public,Documents,Music,Pictures,Videos}
+mkdir -p "$USER_HOME/Pictures/wallpapers"
+cat > "$USER_HOME/.config/user-dirs.dirs" << 'EOF'
+XDG_DESKTOP_DIR="$HOME/Desktop"
+XDG_DOWNLOAD_DIR="$HOME/Downloads"
+XDG_TEMPLATES_DIR="$HOME/Templates"
+XDG_PUBLICSHARE_DIR="$HOME/Public"
+XDG_DOCUMENTS_DIR="$HOME/Documents"
+XDG_MUSIC_DIR="$HOME/Music"
+XDG_PICTURES_DIR="$HOME/Pictures"
+XDG_VIDEOS_DIR="$HOME/Videos"
+EOF
+
+chown -R "${USERNAME}:${USERNAME}" "$USER_HOME"
 
 # ---- Display manager ----
 systemctl enable sddm
 
+# ---- Bluetooth ----
+systemctl enable bluetooth
+
 # ---- Servicios ----
 systemctl enable NetworkManager
-#systemctl enable fstrim.timer
 
 # ---- Snapper: snapshots automáticos del subvolumen raíz ----
 # snap-pac crea un snapshot antes/después de cada operación de pacman,
