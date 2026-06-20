@@ -19,7 +19,7 @@ timedatectl set-ntp true
 echo "--> Instalando sistema base (esto tarda varios minutos)..."
 pacstrap -K /mnt \
     base base-devel linux linux-firmware \
-    btrfs-progs \
+    btrfs-progs cryptsetup tpm2-tools \
     networkmanager \
     sudo vim git \
     snapper snap-pac \

@@ -72,11 +72,21 @@ parted -s "$DISK" \
 echo "--> Formateando partición EFI ($PART_EFI)..."
 mkfs.fat -F32 -n EFI "$PART_EFI"
 
-echo "--> Formateando partición raíz Btrfs ($PART_ROOT)..."
-mkfs.btrfs -f -L ROOT "$PART_ROOT"
+echo
+echo "--> Cifrando partición raíz ($PART_ROOT) con LUKS2..."
+echo "    Vas a establecer la passphrase de cifrado del disco. GUÁRDALA"
+echo "    en un sitio seguro — sin ella, no hay recuperación posible."
+cryptsetup luksFormat --type luks2 "$PART_ROOT"
+
+echo "--> Abriendo el contenedor cifrado..."
+cryptsetup open "$PART_ROOT" cryptroot
+CRYPT_DEV="/dev/mapper/cryptroot"
+
+echo "--> Formateando partición raíz Btrfs sobre el volumen cifrado..."
+mkfs.btrfs -f -L ROOT "$CRYPT_DEV"
 
 echo "--> Creando subvolúmenes Btrfs..."
-mount "$PART_ROOT" /mnt
+mount "$CRYPT_DEV" /mnt
 btrfs subvolume create /mnt/@
 btrfs subvolume create /mnt/@home
 btrfs subvolume create /mnt/@snapshots
@@ -87,19 +97,20 @@ umount /mnt
 echo "--> Montando subvolúmenes con compresión zstd + noatime..."
 MOUNT_OPTS="noatime,compress=zstd,space_cache=v2"
 
-mount -o "$MOUNT_OPTS,subvol=@" "$PART_ROOT" /mnt
+mount -o "$MOUNT_OPTS,subvol=@" "$CRYPT_DEV" /mnt
 mkdir -p /mnt/{boot,home,.snapshots,var/log,var/cache/pacman/pkg}
-mount -o "$MOUNT_OPTS,subvol=@home" "$PART_ROOT" /mnt/home
-mount -o "$MOUNT_OPTS,subvol=@snapshots" "$PART_ROOT" /mnt/.snapshots
-mount -o "$MOUNT_OPTS,subvol=@var_log" "$PART_ROOT" /mnt/var/log
-mount -o "$MOUNT_OPTS,subvol=@pkg" "$PART_ROOT" /mnt/var/cache/pacman/pkg
+mount -o "$MOUNT_OPTS,subvol=@home" "$CRYPT_DEV" /mnt/home
+mount -o "$MOUNT_OPTS,subvol=@snapshots" "$CRYPT_DEV" /mnt/.snapshots
+mount -o "$MOUNT_OPTS,subvol=@var_log" "$CRYPT_DEV" /mnt/var/log
+mount -o "$MOUNT_OPTS,subvol=@pkg" "$CRYPT_DEV" /mnt/var/cache/pacman/pkg
 mount "$PART_EFI" /mnt/boot
 
 echo
 echo "=================================================================="
-echo "  Particionado y montaje completos."
-echo "  Partición EFI : $PART_EFI  -> /mnt/boot"
-echo "  Partición ROOT: $PART_ROOT -> /mnt (subvolúmenes @ @home @snapshots @var_log @pkg)"
+echo "  Particionado, cifrado y montaje completos."
+echo "  Partición EFI : $PART_EFI  -> /mnt/boot (SIN cifrar)"
+echo "  Partición ROOT: $PART_ROOT -> cifrada LUKS2 -> $CRYPT_DEV -> /mnt"
+echo "                  (subvolúmenes @ @home @snapshots @var_log @pkg)"
 echo
 echo "  Siguiente paso: ./02-bootstrap.sh"
 echo "=================================================================="

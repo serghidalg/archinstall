@@ -1,7 +1,8 @@
 # dotfiles
 
-Arch Linux + Hyprland, instalación desde cero. Btrfs con subvolúmenes y
-snapshots automáticos vía snapper, SDDM como display manager, waybar +
+Arch Linux + Hyprland, instalación desde cero. Disco cifrado con LUKS2
+(desbloqueo por TPM2 con passphrase de respaldo), Btrfs con subvolúmenes
+y snapshots automáticos vía snapper, SDDM como display manager, waybar +
 rofi + wlogout + dunst con la misma paleta, hypridle/hyprlock para
 bloqueo automático.
 
@@ -62,6 +63,35 @@ cd ~/arch-hyprland-dotfiles
 `01-partition.sh` borra el disco que se le indique. Pide el nombre dos
 veces y confirmación explícita; aun así, revisa con `lsblk` antes de
 correrlo.
+
+## Cifrado de disco
+
+La partición raíz (todo excepto `/boot`, que va sin cifrar en la ESP)
+está cifrada con **LUKS2**. Desbloqueo:
+
+- **TPM2 automático** (si tu hardware lo tiene): arranca directo, sin
+  pedir nada — `01-partition.sh` te pide la passphrase de todos modos
+  (es la base del cifrado), pero `03-chroot-config.sh` enrola el TPM2
+  al final para que no tengas que escribirla en cada arranque normal.
+- **Passphrase de respaldo**: siempre activa. Si el TPM2 falla, está
+  ausente, o detecta manipulación del arranque (firmware/bootloader
+  modificados), simplemente te la pide — nunca te quedas sin acceso.
+
+**Guarda la passphrase en un sitio seguro.** Sin ella no hay
+recuperación posible, ni con TPM2 ni de ninguna otra forma.
+
+Para desactivar el TPM2 más adelante y volver a pedir solo passphrase:
+```bash
+sudo systemd-cryptenroll --wipe-slot=tpm2 /dev/<partición_root>
+```
+
+Para entrar al sistema desde el ISO live (por ejemplo, para un
+`snapper rollback` de emergencia), hay que desbloquear el LUKS primero:
+```bash
+cryptsetup open /dev/<partición_root> cryptroot
+mount -o subvol=@ /dev/mapper/cryptroot /mnt
+# ...resto del montaje habitual (boot, home, etc.) antes de chroot
+```
 
 ## Particionado
 

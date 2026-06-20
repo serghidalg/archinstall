@@ -54,8 +54,27 @@ if [ -d /root/arch-hyprland-dotfiles ]; then
     chown -R "${USERNAME}:${USERNAME}" "/home/${USERNAME}/arch-hyprland-dotfiles"
 fi
 
+# ---- Cifrado de disco: detectar el contenedor LUKS ya abierto como "cryptroot" ----
+LUKS_DEV=$(cryptsetup status cryptroot | awk '/device:/ {print $2}')
+LUKS_UUID=$(cryptsetup luksUUID "$LUKS_DEV")
+echo "Dispositivo LUKS detectado: $LUKS_DEV (UUID: $LUKS_UUID)"
+
+# /etc/crypttab: permite que el initramfs sepa cómo desbloquear la raíz.
+# "tpm2-device=auto" intenta TPM2 automáticamente si hay un token enrolado
+# (lo enrolamos más abajo); si no hay token o falla, cae a pedir passphrase.
+# "discard" pasa el TRIM al SSD a través del cifrado.
+echo "cryptroot UUID=${LUKS_UUID} none tpm2-device=auto,discard" >> /etc/crypttab
+
+# mkinitcpio: cambiar a hooks basados en systemd (necesarios para sd-encrypt,
+# que es el que sabe hablar con TPM2 durante el arranque).
+sed -i 's/^HOOKS=.*/HOOKS=(base systemd autodetect microcode modconf kms keyboard keymap consolefont block sd-encrypt filesystems fsck)/' /etc/mkinitcpio.conf
+mkinitcpio -P
+
 # ---- Bootloader: GRUB (réplica de tu configuración actual, asume UEFI) ----
 # grub y efibootmgr ya vienen instalados desde el pacstrap (02-bootstrap.sh)
+# NOTA: /boot va en la partición EFI SIN cifrar, así que GRUB no necesita
+# el módulo cryptodisk — solo arranca el kernel/initramfs normal, y es el
+# propio initramfs (con sd-encrypt) el que desbloquea la raíz después.
 grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
 
 # Tu /etc/default/grub, tal cual lo tenías
@@ -65,7 +84,7 @@ GRUB_DEFAULT="0"
 GRUB_TIMEOUT="5"
 GRUB_DISTRIBUTOR="Arch"
 GRUB_CMDLINE_LINUX_DEFAULT="loglevel=3 quiet"
-GRUB_CMDLINE_LINUX=""
+GRUB_CMDLINE_LINUX="rd.luks.name=__LUKS_UUID__=cryptroot root=/dev/mapper/cryptroot rootflags=subvol=@"
 
 # Preload both GPT and MBR modules so that they are not missed
 GRUB_PRELOAD_MODULES="part_gpt part_msdos"
@@ -110,6 +129,9 @@ GRUB_THEME="/usr/share/grub/themes/Particle-window/theme.txt"
 # tenías por si en el futuro añades otro sistema:
 GRUB_DISABLE_OS_PROBER="false"
 GRUBEOF
+
+# Sustituir el placeholder del UUID LUKS por el valor real detectado arriba
+sed -i "s/__LUKS_UUID__/${LUKS_UUID}/" /etc/default/grub
 
 # ---- Tema Particle-window (yeyushengfan258/Particle-grub-theme) ----
 # Instalado SIN el flag -b, para que quede en /usr/share/grub/themes/
@@ -158,6 +180,28 @@ snapper -c root set-config "TIMELINE_LIMIT_HOURLY=6"
 snapper -c root set-config "TIMELINE_LIMIT_DAILY=7"
 systemctl enable snapper-timeline.timer
 systemctl enable snapper-cleanup.timer
+
+# ---- TPM2: desbloqueo automático del disco con passphrase de respaldo ----
+# Si el chip TPM2 falla, está ausente, o detecta manipulación del arranque
+# (firmware/bootloader modificados), simplemente cae a pedir la passphrase
+# que pusiste en 01-partition.sh — nunca te quedas sin acceso.
+if [ -e /dev/tpmrm0 ] || [ -e /dev/tpm0 ]; then
+    echo "--> TPM2 detectado, enrolando para desbloqueo automático..."
+    if systemd-cryptenroll --tpm2-device=auto "$LUKS_DEV"; then
+        echo "    TPM2 enrolado correctamente."
+    else
+        echo "    AVISO: el enrolamiento de TPM2 falló. El disco seguirá"
+        echo "    pidiendo la passphrase manualmente en cada arranque, sin"
+        echo "    problema. Puedes reintentarlo después con:"
+        echo "      sudo systemd-cryptenroll --tpm2-device=auto $LUKS_DEV"
+    fi
+else
+    echo "--> No se detectó TPM2 en este entorno. El disco pedirá la"
+    echo "    passphrase manualmente en cada arranque. Si tu equipo sí"
+    echo "    tiene TPM2 pero no se detectó aquí (puede pasar en el ISO"
+    echo "    live), intenta esto después del primer arranque:"
+    echo "      sudo systemd-cryptenroll --tpm2-device=auto $LUKS_DEV"
+fi
 
 echo
 echo "=================================================================="
